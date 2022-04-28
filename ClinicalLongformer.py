@@ -14,8 +14,8 @@ from sklearn.metrics import (
 )
 import torch
 from transformers import ( 
-    BertTokenizerFast, 
-    BertForSequenceClassification,
+    LongformerTokenizerFast, 
+    LongformerForSequenceClassification,
     Trainer, 
     TrainingArguments,
     DataCollatorWithPadding,
@@ -26,23 +26,23 @@ from transformers import (
 
 print('Loading the dataset...')
 
-# train_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs/train.txt', encoding="utf-8") ]
-train_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs50/train50.txt', encoding="utf-8") ]
+train_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs/train.txt', encoding="utf-8") ]
+# train_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs50/train50.txt', encoding="utf-8") ]
 
-# val_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs/dev.txt', encoding="utf-8") ]
-val_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs50/dev50.txt', encoding="utf-8") ]
+val_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs/dev.txt', encoding="utf-8") ]
+# val_dataset = [ line.rstrip('\n') for line in codecs.open('media/ipcstorage/inputs50/dev50.txt', encoding="utf-8") ]
 
 #%%
 
 print('Processing the labels...')
 
-num_labels = 50 #8921
+num_labels = 8921 #50
 
-# train_1hot = np.load('media/ipcstorage/inputs/train_1hot.npz')['arr_0']
-train_1hot = np.load('media/ipcstorage/inputs50/train50_1hot.npz')['arr_0']
+train_1hot = np.load('media/ipcstorage/inputs/train_1hot.npz')['arr_0']
+# train_1hot = np.load('media/ipcstorage/inputs50/train50_1hot.npz')['arr_0']
 
-# val_1hot = np.load('media/ipcstorage/inputs/val_1hot.npz')['arr_0']
-val_1hot = np.load('media/ipcstorage/inputs50/val50_1hot.npz')['arr_0']
+val_1hot = np.load('media/ipcstorage/inputs/val_1hot.npz')['arr_0']
+# val_1hot = np.load('media/ipcstorage/inputs50/val50_1hot.npz')['arr_0']
 
 #%%
 
@@ -56,12 +56,27 @@ val_texts = [line.split('<>')[1][1:-1] for line in val_dataset]
 
 print('Tokenizing the dataset...')
  
-model_name='emilyalsentzer/Bio_ClinicalBERT'
+model_name='yikuan8/Clinical-Longformer'
 
 # Load the tokenizer
-tokenizer = BertTokenizerFast.from_pretrained(model_name, do_lower_case=True)
+tokenizer = LongformerTokenizerFast.from_pretrained(model_name, do_lower_case=True)
 
 #%%
+
+def compute_max_length(encodings):
+    lengths = list(range(512,4096+1,512))
+    num_tokens = len(encodings.input_ids)
+    if num_tokens <= min(lengths):
+        max_length = min(lengths)
+    elif num_tokens > max(lengths):
+        max_length = max(lengths)
+    else:
+        max_length = num_tokens
+        for n in lengths:
+            if max_length <= n:
+                max_length = n
+                break        
+    return max_length 
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, texts, labels):
@@ -69,7 +84,9 @@ class MyDataset(torch.utils.data.Dataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        encodings = tokenizer(self.texts[idx], truncation=True, max_length=512)
+        aux = tokenizer(self.texts[idx])
+        max_length = compute_max_length(aux)
+        encodings = tokenizer(self.texts[idx], truncation=True, padding='max_length', max_length=max_length)
         item = {k: torch.tensor(v) for k, v in encodings.items()}
         item["labels"] = torch.tensor(self.labels[idx])
         return item
@@ -85,19 +102,19 @@ val_dataset = MyDataset(val_texts, val_1hot)
 
 print('Loading the model...')
 
-model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels).to('cuda')
+model = LongformerForSequenceClassification.from_pretrained(model_name, num_labels=num_labels).to('cuda')
 
 #%%
 
 training_args = TrainingArguments(
-    output_dir='media/ipcstorage/results_ClinicalBERT50', 
+    output_dir='media/ipcstorage/results_ClinicalLongformer', 
     group_by_length=True,
     learning_rate=2e-5,
     lr_scheduler_type='constant',
     num_train_epochs=30,                               
-    per_device_train_batch_size=16,  
-    per_device_eval_batch_size=16,                    
-    # gradient_accumulation_steps=2,
+    per_device_train_batch_size=2,  
+    per_device_eval_batch_size=2,                    
+    gradient_accumulation_steps=8,
     evaluation_strategy='epoch',
     save_strategy='epoch',
     save_total_limit=10,
@@ -110,7 +127,7 @@ training_args = TrainingArguments(
 def sigmoid(x):
   return 1 / (1 + np.exp(-x))
 
-file = open('media/ipcstorage/metrics_ClinicalBERT50.txt','w')
+file = open('media/ipcstorage/metrics_ClinicalLongformer.txt','w')
 
 def compute_metrics(pred):
     labels = pred.label_ids
