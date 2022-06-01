@@ -24,12 +24,12 @@ To measure the predictive capability of the model, we use the evaluation.py scri
     year={2020}
 }
 
- @inproceedings{Mullenbach2018,
-    author = {Mullenbach, James and Wiegreffe, Sarah and Duke, Jon and Sun, Jimeng and Eisenstein, Jacob},
-    booktitle = {Proceedings of NAACL-HLT},
-    pages = {1101--1111},
-    title = {Explainable Prediction of Medical Codes from Clinical Text},
-    year = {2018}
+@inproceedings{Mullenbach2018,
+  title={Explainable Prediction of Medical Codes from Clinical Text},
+  author={Mullenbach, James and Wiegreffe, Sarah and Duke, Jon and Sun, Jimeng and Eisenstein, Jacob},
+  booktitle={Proceedings of the 2018 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long Papers)},
+  pages={1101--1111},
+  year={2018}
 }
-}
+
 </code></pre>
